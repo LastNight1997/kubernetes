@@ -19,6 +19,7 @@ package node
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -29,11 +30,9 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/diff"
-	utilfeature "k8s.io/apiserver/pkg/util/feature"
-	"k8s.io/component-base/featuregate"
+	clientset "k8s.io/client-go/kubernetes"
 	podutil "k8s.io/kubernetes/pkg/api/v1/pod"
 	resourceapi "k8s.io/kubernetes/pkg/api/v1/resource"
-	"k8s.io/kubernetes/pkg/features"
 	kubecm "k8s.io/kubernetes/pkg/kubelet/cm"
 
 	"k8s.io/kubernetes/test/e2e/framework"
@@ -43,6 +42,7 @@ import (
 	e2epodoutput "k8s.io/kubernetes/test/e2e/framework/pod/output"
 	imageutils "k8s.io/kubernetes/test/utils/image"
 
+	semver "github.com/blang/semver/v4"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 )
@@ -79,13 +79,24 @@ type TestContainerInfo struct {
 	RestartCount int32
 }
 
-func isFeatureGatePostAlpha() bool {
-	if fs, found := utilfeature.DefaultFeatureGate.DeepCopy().GetAll()[features.InPlacePodVerticalScaling]; found {
-		if fs.PreRelease == featuregate.Alpha {
+func isInPlaceResizeSupportedByRuntime(c clientset.Interface, nodeName string) bool {
+	//TODO(vinaykul,InPlacePodVerticalScaling): Can we optimize this?
+	node, err := c.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
+	if err != nil {
+		return false
+	}
+	re := regexp.MustCompile("containerd://(.*)")
+	match := re.FindStringSubmatch(node.Status.NodeInfo.ContainerRuntimeVersion)
+	if len(match) != 2 {
+		return false
+	}
+	if ver, verr := semver.ParseTolerant(match[1]); verr == nil {
+		if ver.Compare(semver.MustParse("1.6.9")) < 0 {
 			return false
 		}
+		return true
 	}
-	return true
+	return false
 }
 
 func getTestResourceInfo(tcInfo TestContainerInfo) (v1.ResourceRequirements, v1.ResourceList, []v1.ContainerResizePolicy) {
@@ -381,7 +392,7 @@ func verifyPodContainersCgroupValues(pod *v1.Pod, tcInfo []TestContainerInfo, fl
 	return true
 }
 
-func waitForPodResizeActuation(podClient *e2epod.PodClient, pod, patchedPod *v1.Pod, expectedContainers []TestContainerInfo) *v1.Pod {
+func waitForPodResizeActuation(c clientset.Interface, podClient *e2epod.PodClient, pod, patchedPod *v1.Pod, expectedContainers []TestContainerInfo) *v1.Pod {
 
 	waitForContainerRestart := func() error {
 		var restartContainersExpected []string
@@ -462,9 +473,9 @@ func waitForPodResizeActuation(podClient *e2epod.PodClient, pod, patchedPod *v1.
 	// Wait for container cgroup values to equal expected cgroup values after resize
 	cErr := waitContainerCgroupValuesEqualsExpected()
 	framework.ExpectNoError(cErr, "failed to verify container cgroup values equals expected values")
-	//TODO(vinaykul,InPlacePodVerticalScaling): Remove featureGatePostAlpha upon exiting Alpha.
+	//TODO(vinaykul,InPlacePodVerticalScaling): Remove this check once base-OS updates to containerd>=1.6.9
 	//                containerd needs to add CRI support before Beta (See Node KEP #2273)
-	if isFeatureGatePostAlpha() {
+	if isInPlaceResizeSupportedByRuntime(c, pod.Spec.NodeName) {
 		// Wait for PodSpec container resources to equal PodStatus container resources indicating resize is complete
 		rPod, rErr := waitPodStatusResourcesEqualSpecResources()
 		framework.ExpectNoError(rErr, "failed to verify pod spec resources equals pod status resources")
@@ -1229,7 +1240,7 @@ func doPodResizeTests() {
 			verifyPodAllocations(patchedPod, tc.containers, true)
 
 			ginkgo.By("waiting for resize to be actuated")
-			resizedPod := waitForPodResizeActuation(podClient, newPod, patchedPod, tc.expected)
+			resizedPod := waitForPodResizeActuation(f.ClientSet, podClient, newPod, patchedPod, tc.expected)
 
 			ginkgo.By("verifying pod container's cgroup values after resize")
 			verifyPodContainersCgroupValues(resizedPod, tc.expected, true)
@@ -1323,7 +1334,7 @@ func doPodResizeResourceQuotaTests() {
 		verifyPodAllocations(patchedPod, containers, true)
 
 		ginkgo.By("waiting for resize to be actuated")
-		resizedPod := waitForPodResizeActuation(podClient, newPod1, patchedPod, expected)
+		resizedPod := waitForPodResizeActuation(f.ClientSet, podClient, newPod1, patchedPod, expected)
 
 		ginkgo.By("verifying pod container's cgroup values after resize")
 		verifyPodContainersCgroupValues(resizedPod, expected, true)
