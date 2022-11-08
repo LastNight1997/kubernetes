@@ -124,7 +124,7 @@ type PodContainerManager interface {
 	// IsPodCgroup returns true if the literal cgroupfs name corresponds to a pod
 	IsPodCgroup(cgroupfs string) (bool, types.UID)
 
-	// Get value of memory.usage_in_bytes for the pod Cgroup
+	// Get value of memory usage for the pod Cgroup
 	GetPodCgroupMemoryUsage(pod *v1.Pod) (uint64, error)
 
 	// Get the resource config values applied to the pod cgroup for specified resource type

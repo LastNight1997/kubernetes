@@ -483,13 +483,14 @@ func (g *GenericPLEG) updateCache(ctx context.Context, pod *kubecontainer.Pod, p
 }
 
 func (g *GenericPLEG) UpdateCache(pod *kubecontainer.Pod, pid types.UID) error {
+	ctx := context.Background()
 	if !g.cacheEnabled() {
 		return fmt.Errorf("pod cache disabled")
 	}
 	if pod == nil {
 		return fmt.Errorf("pod cannot be nil")
 	}
-	return g.updateCache(pod, pid)
+	return g.updateCache(ctx, pod, pid)
 }
 
 func updateEvents(eventsByPodID map[types.UID][]*PodLifecycleEvent, e *PodLifecycleEvent) {
