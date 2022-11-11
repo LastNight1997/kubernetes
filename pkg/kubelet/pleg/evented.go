@@ -396,3 +396,7 @@ func (e *EventedPLEG) updateRunningContainerMetric(podStatus *kubecontainer.PodS
 		}
 	}
 }
+
+func (e *EventedPLEG) UpdateCache(pod *kubecontainer.Pod, pid types.UID) (error, bool) {
+	return fmt.Errorf("not implemented"), false
+}

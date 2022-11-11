@@ -1863,7 +1863,7 @@ func (kl *Kubelet) syncPod(_ context.Context, updateType kubetypes.SyncPodType, 
 	if utilfeature.DefaultFeatureGate.Enabled(features.InPlacePodVerticalScaling) && isPodResizeInProgress(pod, &apiPodStatus) {
 		// While resize is in progress, periodically call PLEG to update pod cache
 		runningPod := kubecontainer.ConvertPodStatusToRunningPod(kl.getRuntime().Type(), podStatus)
-		if err := kl.pleg.UpdateCache(&runningPod, pod.UID); err != nil {
+		if err, _ := kl.pleg.UpdateCache(&runningPod, pod.UID); err != nil {
 			klog.ErrorS(err, "Failed to update pod cache", "pod", klog.KObj(pod))
 			return false, err
 		}

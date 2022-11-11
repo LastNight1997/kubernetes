@@ -482,13 +482,13 @@ func (g *GenericPLEG) updateCache(ctx context.Context, pod *kubecontainer.Pod, p
 	return err, g.cache.Set(pod.ID, status, err, timestamp)
 }
 
-func (g *GenericPLEG) UpdateCache(pod *kubecontainer.Pod, pid types.UID) error {
+func (g *GenericPLEG) UpdateCache(pod *kubecontainer.Pod, pid types.UID) (error, bool) {
 	ctx := context.Background()
 	if !g.cacheEnabled() {
-		return fmt.Errorf("pod cache disabled")
+		return fmt.Errorf("pod cache disabled"), false
 	}
 	if pod == nil {
-		return fmt.Errorf("pod cannot be nil")
+		return fmt.Errorf("pod cannot be nil"), false
 	}
 	return g.updateCache(ctx, pod, pid)
 }
