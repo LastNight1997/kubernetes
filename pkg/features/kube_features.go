@@ -849,7 +849,7 @@ const (
 
 	// owner: @vinaykul
 	// kep: http://kep.k8s.io/1287
-	// alpha: v1.26
+	// alpha: v1.27
 	//
 	// Enables In-Place Pod Vertical Scaling
 	InPlacePodVerticalScaling featuregate.Feature = "InPlacePodVerticalScaling"
