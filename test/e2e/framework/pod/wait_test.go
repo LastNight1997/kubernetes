@@ -201,6 +201,7 @@ INFO: Unexpected error: wait for pod pending-pod running:
                     ContainerStatuses: nil,
                     QOSClass: "",
                     EphemeralContainerStatuses: nil,
+                    Resize: "",
                 },
             },
         ],
